@@ -1,5 +1,5 @@
 import { NativeModules, NativeEventEmitter, Platform } from 'react-native';
-import { InCallManager } from 'react-native-incall-manager';
+import InCallManager from 'react-native-incall-manager';
 
 export type AudioRoute = 'earpiece' | 'speaker' | 'bluetooth' | 'wired';
 

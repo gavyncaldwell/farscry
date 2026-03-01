@@ -85,8 +85,9 @@ class PushServiceImpl {
       this.handleVoipPush(notification as IncomingCallPayload);
     });
 
+    // registerVoipToken() registers for VoIP pushes — on iOS, VoIP push
+    // permissions are implicitly granted when registering for PushKit.
     VoipPushNotification.registerVoipToken();
-    VoipPushNotification.requestPermissions();
   }
 
   /**
