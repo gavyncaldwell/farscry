@@ -5,6 +5,7 @@ import {NavigationContainer} from '@react-navigation/native';
 import {GestureHandlerRootView} from 'react-native-gesture-handler';
 import {AuthProvider} from './src/stores/authStore';
 import {ContactsProvider} from './src/stores/contactsStore';
+import {CallProvider} from './src/stores/callStore';
 import {RootNavigator} from './src/navigation/RootNavigator';
 import {colors} from './src/theme/colors';
 
@@ -34,7 +35,9 @@ export default function App() {
           <SafeAreaProvider>
             <StatusBar barStyle="light-content" backgroundColor={colors.background} />
             <NavigationContainer theme={navTheme}>
-              <RootNavigator />
+              <CallProvider>
+                <RootNavigator />
+              </CallProvider>
             </NavigationContainer>
           </SafeAreaProvider>
         </ContactsProvider>
