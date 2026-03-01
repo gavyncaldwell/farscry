@@ -1,8 +1,9 @@
 -- Farscry initial schema
 -- Run this in the Supabase SQL Editor (Dashboard > SQL Editor > New query)
 
--- Enable the trigram extension for fuzzy display_name search
-create extension if not exists pg_trgm;
+-- Enable the trigram extension for fuzzy display_name search (in extensions schema)
+create schema if not exists extensions;
+create extension if not exists pg_trgm schema extensions;
 
 -- ============================================
 -- TABLES
@@ -43,7 +44,7 @@ create table if not exists public.push_tokens (
 
 create index if not exists idx_contacts_contact_user on public.contacts(contact_user_id);
 create index if not exists idx_contacts_user on public.contacts(user_id);
-create index if not exists idx_users_display_name on public.users using gin (display_name gin_trgm_ops);
+create index if not exists idx_users_display_name on public.users using gin (display_name extensions.gin_trgm_ops);
 
 -- ============================================
 -- TRIGGER: Auto-create user profile on signup
@@ -80,6 +81,7 @@ create trigger on_auth_user_created
 create or replace function public.update_updated_at()
 returns trigger
 language plpgsql
+security invoker set search_path = ''
 as $$
 begin
   new.updated_at = now();
