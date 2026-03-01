@@ -7,8 +7,10 @@ import {
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
+  ActivityIndicator,
 } from 'react-native';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
+import {useAuth} from '../../stores/authStore';
 import {colors} from '../../theme/colors';
 import {typography} from '../../theme/typography';
 import {spacing} from '../../theme/spacing';
@@ -19,11 +21,12 @@ export function SignupScreen({navigation}: AuthScreenProps<'Signup'>) {
   const [displayName, setDisplayName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const {signUp, loading, error, clearError} = useAuth();
 
   const isValid = displayName.trim() && email && password.length >= 8;
 
-  function handleSignup() {
-    // TODO: wire up auth service
+  async function handleSignup() {
+    await signUp(email, password, displayName);
   }
 
   return (
@@ -69,19 +72,27 @@ export function SignupScreen({navigation}: AuthScreenProps<'Signup'>) {
             textContentType="newPassword"
           />
 
+          {error && (
+            <Text style={styles.errorText}>{error}</Text>
+          )}
+
           <TouchableOpacity
-            style={[styles.button, !isValid && styles.buttonDisabled]}
+            style={[styles.button, (!isValid || loading) && styles.buttonDisabled]}
             onPress={handleSignup}
             activeOpacity={0.8}
-            disabled={!isValid}>
-            <Text style={styles.buttonText}>Create account</Text>
+            disabled={!isValid || loading}>
+            {loading ? (
+              <ActivityIndicator color={colors.white} />
+            ) : (
+              <Text style={styles.buttonText}>Create account</Text>
+            )}
           </TouchableOpacity>
         </View>
       </View>
 
       <TouchableOpacity
         style={styles.loginLink}
-        onPress={() => navigation.navigate('Login')}
+        onPress={() => { clearError(); navigation.navigate('Login'); }}
         activeOpacity={0.7}>
         <Text style={styles.loginText}>
           Already have an account?{' '}
@@ -140,6 +151,11 @@ const styles = StyleSheet.create({
   buttonText: {
     ...typography.headline,
     color: colors.white,
+  },
+  errorText: {
+    ...typography.footnote,
+    color: colors.callRed,
+    textAlign: 'center',
   },
   loginLink: {
     alignItems: 'center',
