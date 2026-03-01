@@ -1,5 +1,7 @@
-import React, {useState} from 'react';
+import React from 'react';
+import {ActivityIndicator, View} from 'react-native';
 import {createNativeStackNavigator} from '@react-navigation/native-stack';
+import {useAuth} from '../stores/authStore';
 import {MainTabs} from './MainTabs';
 import {LoginScreen} from '../screens/auth/LoginScreen';
 import {SignupScreen} from '../screens/auth/SignupScreen';
@@ -30,8 +32,15 @@ function AuthNavigator() {
 }
 
 export function RootNavigator() {
-  // TODO: replace with real auth state from auth service
-  const [isAuthenticated] = useState(false);
+  const {user, loading} = useAuth();
+
+  if (loading) {
+    return (
+      <View style={{flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background}}>
+        <ActivityIndicator size="large" color={colors.accent} />
+      </View>
+    );
+  }
 
   return (
     <RootStack.Navigator
@@ -39,7 +48,7 @@ export function RootNavigator() {
         headerShown: false,
         contentStyle: {backgroundColor: colors.background},
       }}>
-      {isAuthenticated ? (
+      {user ? (
         <>
           <RootStack.Screen name="Main" component={MainTabs} />
           <RootStack.Group

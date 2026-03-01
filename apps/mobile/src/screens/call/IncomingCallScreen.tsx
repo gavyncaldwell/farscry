@@ -3,6 +3,7 @@ import {View, Text, TouchableOpacity, Animated, StyleSheet} from 'react-native';
 import Svg, {Path} from 'react-native-svg';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {Avatar} from '../../components/Avatar';
+import {useCallContext} from '../../stores/callStore';
 import {colors} from '../../theme/colors';
 import {typography} from '../../theme/typography';
 import {spacing} from '../../theme/spacing';
@@ -41,6 +42,7 @@ export function IncomingCallScreen({
   route,
 }: RootStackScreenProps<'IncomingCall'>) {
   const insets = useSafeAreaInsets();
+  const {callManager} = useCallContext();
   const {callerName} = route.params;
   const pulse = useRef(new Animated.Value(1)).current;
 
@@ -56,6 +58,7 @@ export function IncomingCallScreen({
   }, [pulse]);
 
   function handleAccept() {
+    callManager?.acceptCall();
     navigation.replace('ActiveCall', {
       contactId: route.params.callerId,
       contactName: callerName,
@@ -63,6 +66,7 @@ export function IncomingCallScreen({
   }
 
   function handleDecline() {
+    callManager?.declineCall();
     navigation.goBack();
   }
 

@@ -1,11 +1,5 @@
 import { Platform } from 'react-native';
-import RNCallKeep, {
-  type SetupOptions,
-  type AnswerCallPayload,
-  type EndCallPayload,
-  type MuteCallPayload,
-  type HoldCallPayload,
-} from 'react-native-callkeep';
+import RNCallKeep, { CONSTANTS } from 'react-native-callkeep';
 
 export interface CallKeepEventHandlers {
   onAnswerCall: (callUUID: string) => void;
@@ -16,12 +10,12 @@ export interface CallKeepEventHandlers {
   onIncomingCallDisplayed: (callUUID: string) => void;
 }
 
-const SETUP_CONFIG: SetupOptions = {
+const SETUP_CONFIG = {
   ios: {
     appName: 'Farscry',
     supportsVideo: true,
-    maximumCallGroups: 1,
-    maximumCallsPerCallGroup: 1,
+    maximumCallGroups: '1',
+    maximumCallsPerCallGroup: '1',
     includesCallsInRecents: true,
   },
   android: {
@@ -29,6 +23,7 @@ const SETUP_CONFIG: SetupOptions = {
     alertDescription: 'Farscry needs phone account access to manage calls',
     cancelButton: 'Cancel',
     okButton: 'OK',
+    additionalPermissions: [],
     selfManaged: true,
     foregroundService: {
       channelId: 'farscry-call',
@@ -49,7 +44,7 @@ class CallKeepServiceImpl {
       await RNCallKeep.setup(SETUP_CONFIG);
 
       if (Platform.OS === 'android') {
-        RNCallKeep.registerPhoneAccount();
+        RNCallKeep.registerPhoneAccount(SETUP_CONFIG);
         RNCallKeep.registerAndroidEvents();
       }
 
@@ -64,19 +59,19 @@ class CallKeepServiceImpl {
   registerEventHandlers(handlers: CallKeepEventHandlers) {
     this.handlers = handlers;
 
-    RNCallKeep.addEventListener('answerCall', ({ callUUID }: AnswerCallPayload) => {
+    RNCallKeep.addEventListener('answerCall', ({ callUUID }) => {
       this.handlers?.onAnswerCall(callUUID);
     });
 
-    RNCallKeep.addEventListener('endCall', ({ callUUID }: EndCallPayload) => {
+    RNCallKeep.addEventListener('endCall', ({ callUUID }) => {
       this.handlers?.onEndCall(callUUID);
     });
 
-    RNCallKeep.addEventListener('didPerformSetMutedCallAction', ({ callUUID, muted }: MuteCallPayload) => {
+    RNCallKeep.addEventListener('didPerformSetMutedCallAction', ({ callUUID, muted }) => {
       this.handlers?.onMuteToggled(callUUID, muted);
     });
 
-    RNCallKeep.addEventListener('didToggleHoldCallAction', ({ callUUID, hold }: HoldCallPayload) => {
+    RNCallKeep.addEventListener('didToggleHoldCallAction', ({ callUUID, hold }) => {
       this.handlers?.onHoldToggled(callUUID, hold);
     });
 
@@ -84,7 +79,7 @@ class CallKeepServiceImpl {
       this.handlers?.onAudioSessionActivated();
     });
 
-    RNCallKeep.addEventListener('didDisplayIncomingCall', ({ callUUID }: { callUUID: string }) => {
+    RNCallKeep.addEventListener('didDisplayIncomingCall', ({ callUUID }) => {
       this.handlers?.onIncomingCallDisplayed(callUUID);
     });
   }
@@ -127,10 +122,10 @@ class CallKeepServiceImpl {
 
   reportEndCall(callUUID: string, reason?: 'failed' | 'remote' | 'unanswered' | 'declined') {
     const reasonMap = {
-      failed: RNCallKeep.END_CALL_REASONS.FAILED,
-      remote: RNCallKeep.END_CALL_REASONS.REMOTE_ENDED,
-      unanswered: RNCallKeep.END_CALL_REASONS.UNANSWERED,
-      declined: RNCallKeep.END_CALL_REASONS.DECLINED_ELSEWHERE,
+      failed: CONSTANTS.END_CALL_REASONS.FAILED,
+      remote: CONSTANTS.END_CALL_REASONS.REMOTE_ENDED,
+      unanswered: CONSTANTS.END_CALL_REASONS.UNANSWERED,
+      declined: CONSTANTS.END_CALL_REASONS.DECLINED_ELSEWHERE,
     };
 
     if (reason) {

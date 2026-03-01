@@ -1,47 +1,46 @@
 import React, {useState} from 'react';
-import {View, Text, TouchableOpacity, FlatList, StyleSheet} from 'react-native';
+import {View, Text, TouchableOpacity, FlatList, StyleSheet, Alert} from 'react-native';
+import {useNavigation} from '@react-navigation/native';
 import {SearchBar} from '../../components/SearchBar';
 import {Avatar} from '../../components/Avatar';
 import {EmptyState} from '../../components/EmptyState';
+import {UserService, type UserProfile} from '../../services/user/UserService';
+import {useContacts} from '../../stores/contactsStore';
 import {colors} from '../../theme/colors';
 import {typography} from '../../theme/typography';
 import {spacing} from '../../theme/spacing';
 
-type SearchResult = {
-  id: string;
-  name: string;
-  username: string;
-};
-
-const MOCK_RESULTS: SearchResult[] = [
-  {id: '10', name: 'Sarah Lin', username: 'sarahlin'},
-  {id: '11', name: 'Omar Hassan', username: 'omarh'},
-  {id: '12', name: 'Yuki Tanaka', username: 'yukitan'},
-];
-
 export function AddContactScreen() {
+  const navigation = useNavigation();
   const [query, setQuery] = useState('');
-  const [results, setResults] = useState<SearchResult[]>([]);
+  const [results, setResults] = useState<UserProfile[]>([]);
   const [searched, setSearched] = useState(false);
+  const {addContact} = useContacts();
 
-  function handleSearch(text: string) {
+  async function handleSearch(text: string) {
     setQuery(text);
     if (text.trim().length >= 2) {
-      const q = text.toLowerCase();
-      setResults(
-        MOCK_RESULTS.filter(
-          r => r.name.toLowerCase().includes(q) || r.username.toLowerCase().includes(q),
-        ),
-      );
-      setSearched(true);
+      try {
+        const users = await UserService.searchUsers(text);
+        setResults(users);
+        setSearched(true);
+      } catch {
+        setResults([]);
+        setSearched(true);
+      }
     } else {
       setResults([]);
       setSearched(false);
     }
   }
 
-  function handleAdd(_user: SearchResult) {
-    // TODO: wire up contact service
+  async function handleAdd(user: UserProfile) {
+    try {
+      await addContact(user.id);
+      navigation.goBack();
+    } catch (e: unknown) {
+      Alert.alert('Error', e instanceof Error ? e.message : 'Failed to add contact');
+    }
   }
 
   return (
@@ -50,14 +49,14 @@ export function AddContactScreen() {
         <SearchBar
           value={query}
           onChangeText={handleSearch}
-          placeholder="Search by username"
+          placeholder="Search by name"
         />
       </View>
 
       {!searched ? (
         <EmptyState
           title="Find people"
-          message="Search by username to add them to your contacts."
+          message="Search by name to add them to your contacts."
         />
       ) : results.length === 0 ? (
         <EmptyState
@@ -70,10 +69,9 @@ export function AddContactScreen() {
           keyExtractor={item => item.id}
           renderItem={({item}) => (
             <View style={styles.row}>
-              <Avatar name={item.name} size={44} />
+              <Avatar name={item.display_name} size={44} />
               <View style={styles.info}>
-                <Text style={styles.name}>{item.name}</Text>
-                <Text style={styles.username}>@{item.username}</Text>
+                <Text style={styles.name}>{item.display_name}</Text>
               </View>
               <TouchableOpacity
                 style={styles.addButton}
@@ -112,10 +110,6 @@ const styles = StyleSheet.create({
   name: {
     ...typography.body,
     color: colors.text,
-  },
-  username: {
-    ...typography.footnote,
-    color: colors.textSecondary,
   },
   addButton: {
     backgroundColor: colors.accent,

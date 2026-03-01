@@ -16,13 +16,13 @@ export const ContactsService = {
     if (!userId) throw new Error('Not authenticated');
 
     const {data, error} = await supabase
-      .from<Contact>('contacts')
+      .from('contacts')
       .select('*, profile:users!contact_user_id(*)')
       .eq('user_id', userId)
       .order('added_at', {ascending: false});
 
     if (error) throw new Error(error.message);
-    return data ?? [];
+    return (data ?? []) as Contact[];
   },
 
   async addContact(contactUserId: string): Promise<Contact> {
@@ -35,8 +35,9 @@ export const ContactsService = {
     }
 
     const {data, error} = await supabase
-      .from<Contact>('contacts')
+      .from('contacts')
       .insert({user_id: userId, contact_user_id: contactUserId})
+      .select('*, profile:users!contact_user_id(*)')
       .single();
 
     if (error) {
@@ -45,8 +46,7 @@ export const ContactsService = {
       }
       throw new Error(error.message);
     }
-    if (!data) throw new Error('Failed to add contact');
-    return data;
+    return data as Contact;
   },
 
   async removeContact(contactUserId: string): Promise<void> {
@@ -68,9 +68,8 @@ export const ContactsService = {
     const userId = sessionData.session?.user.id;
     if (!userId) throw new Error('Not authenticated');
 
-    // Fetch current state
     const {data: existing, error: fetchError} = await supabase
-      .from<Contact>('contacts')
+      .from('contacts')
       .select('is_favorite')
       .eq('user_id', userId)
       .eq('contact_user_id', contactUserId)

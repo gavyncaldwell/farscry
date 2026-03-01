@@ -2,6 +2,8 @@ import { Platform, Linking, Alert } from 'react-native';
 import {
   check,
   request,
+  checkNotifications,
+  requestNotifications,
   PERMISSIONS,
   RESULTS,
   type Permission,
@@ -13,7 +15,12 @@ export type PermissionType = 'camera' | 'microphone' | 'notifications';
 
 export type PermissionState = 'granted' | 'denied' | 'blocked' | 'unavailable' | 'undetermined';
 
-const PERMISSION_MAP: Record<PermissionType, { ios: Permission; android: Permission }> = {
+/**
+ * Notifications are not a standard permission in react-native-permissions.
+ * They use checkNotifications/requestNotifications instead.
+ * Only camera and microphone are in this map.
+ */
+const PERMISSION_MAP: Record<'camera' | 'microphone', { ios: Permission; android: Permission }> = {
   camera: {
     ios: PERMISSIONS.IOS.CAMERA,
     android: PERMISSIONS.ANDROID.CAMERA,
@@ -21,11 +28,6 @@ const PERMISSION_MAP: Record<PermissionType, { ios: Permission; android: Permiss
   microphone: {
     ios: PERMISSIONS.IOS.MICROPHONE,
     android: PERMISSIONS.ANDROID.RECORD_AUDIO,
-  },
-  notifications: {
-    ios: PERMISSIONS.IOS.NOTIFICATIONS,
-    // Android 13+ (API 33) requires POST_NOTIFICATIONS
-    android: PERMISSIONS.ANDROID.POST_NOTIFICATIONS,
   },
 };
 
@@ -45,19 +47,27 @@ function mapStatus(status: PermissionStatus): PermissionState {
   }
 }
 
-function getPlatformPermission(type: PermissionType): Permission {
+function getPlatformPermission(type: 'camera' | 'microphone'): Permission {
   const entry = PERMISSION_MAP[type];
   return Platform.OS === 'ios' ? entry.ios : entry.android;
 }
 
 class PermissionsServiceImpl {
   async checkPermission(type: PermissionType): Promise<PermissionState> {
+    if (type === 'notifications') {
+      const { status } = await checkNotifications();
+      return mapStatus(status);
+    }
     const permission = getPlatformPermission(type);
     const status = await check(permission);
     return mapStatus(status);
   }
 
   async requestPermission(type: PermissionType): Promise<PermissionState> {
+    if (type === 'notifications') {
+      const { status } = await requestNotifications(['alert', 'sound', 'badge']);
+      return mapStatus(status);
+    }
     const permission = getPlatformPermission(type);
     const status = await request(permission);
     return mapStatus(status);
@@ -109,9 +119,9 @@ class PermissionsServiceImpl {
 
     const message = rationale || `Farscry needs ${labels[type].toLowerCase()} access. Please enable it in Settings.`;
 
-    return new Promise((resolve) => {
+    return new Promise<void>((resolve) => {
       Alert.alert(`${labels[type]} Access Required`, message, [
-        { text: 'Not Now', style: 'cancel', onPress: resolve },
+        { text: 'Not Now', style: 'cancel', onPress: () => resolve() },
         {
           text: 'Open Settings',
           onPress: () => {

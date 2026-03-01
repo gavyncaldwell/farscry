@@ -1,7 +1,9 @@
-import React from 'react';
-import {View, Text, ScrollView, TouchableOpacity, Switch, StyleSheet} from 'react-native';
+import React, {useEffect, useState, useCallback} from 'react';
+import {View, Text, ScrollView, TouchableOpacity, Switch, StyleSheet, Alert, TextInput} from 'react-native';
 import Svg, {Path} from 'react-native-svg';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
+import {useAuth} from '../../stores/authStore';
+import {UserService, type UserProfile} from '../../services/user/UserService';
 import {colors} from '../../theme/colors';
 import {typography} from '../../theme/typography';
 import {spacing} from '../../theme/spacing';
@@ -54,6 +56,43 @@ function SectionHeader({title}: {title: string}) {
 
 export function SettingsScreen() {
   const insets = useSafeAreaInsets();
+  const {user, signOut} = useAuth();
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [editingName, setEditingName] = useState(false);
+  const [nameInput, setNameInput] = useState('');
+
+  useEffect(() => {
+    if (user?.id) {
+      UserService.getProfile(user.id).then(setProfile).catch(() => {});
+    }
+  }, [user?.id]);
+
+  const handleSignOut = useCallback(() => {
+    Alert.alert('Sign out', 'Are you sure?', [
+      {text: 'Cancel', style: 'cancel'},
+      {text: 'Sign out', style: 'destructive', onPress: () => signOut()},
+    ]);
+  }, [signOut]);
+
+  const handleEditName = useCallback(() => {
+    setNameInput(profile?.display_name ?? '');
+    setEditingName(true);
+  }, [profile?.display_name]);
+
+  const handleSaveName = useCallback(async () => {
+    const trimmed = nameInput.trim();
+    if (!trimmed || trimmed === profile?.display_name) {
+      setEditingName(false);
+      return;
+    }
+    try {
+      const updated = await UserService.updateProfile({display_name: trimmed});
+      setProfile(updated);
+    } catch (e: unknown) {
+      Alert.alert('Error', e instanceof Error ? e.message : 'Failed to update name');
+    }
+    setEditingName(false);
+  }, [nameInput, profile?.display_name]);
 
   return (
     <ScrollView
@@ -61,7 +100,7 @@ export function SettingsScreen() {
       contentContainerStyle={{paddingBottom: insets.bottom + spacing.xxl}}>
       <SectionHeader title="Video" />
       <View style={styles.section}>
-        <SettingsRow label="Video quality" value="Auto" onPress={() => {}} />
+        <SettingsRow label="Video quality" value="Auto" />
         <SettingsRow label="Mirror front camera" trailing={<Switch value={true} />} />
       </View>
 
@@ -74,24 +113,43 @@ export function SettingsScreen() {
       <SectionHeader title="Notifications" />
       <View style={styles.section}>
         <SettingsRow label="Incoming calls" trailing={<Switch value={true} />} />
-        <SettingsRow label="Ringtone" value="Default" onPress={() => {}} />
+        <SettingsRow label="Ringtone" value="Default" />
       </View>
 
       <SectionHeader title="Account" />
       <View style={styles.section}>
-        <SettingsRow label="Display name" value="You" onPress={() => {}} />
-        <SettingsRow label="Email" value="you@example.com" onPress={() => {}} />
-        <SettingsRow label="Change password" onPress={() => {}} />
+        {editingName ? (
+          <View style={styles.row}>
+            <Text style={styles.rowLabel}>Display name</Text>
+            <TextInput
+              style={styles.nameInput}
+              value={nameInput}
+              onChangeText={setNameInput}
+              onBlur={handleSaveName}
+              onSubmitEditing={handleSaveName}
+              autoFocus
+              returnKeyType="done"
+            />
+          </View>
+        ) : (
+          <SettingsRow
+            label="Display name"
+            value={profile?.display_name ?? '...'}
+            onPress={handleEditName}
+          />
+        )}
+        <SettingsRow label="Email" value={user?.email ?? '...'} />
       </View>
 
       <SectionHeader title="About" />
       <View style={styles.section}>
         <SettingsRow label="Version" value="1.0.0" />
-        <SettingsRow label="Privacy policy" onPress={() => {}} />
-        <SettingsRow label="Source code" onPress={() => {}} />
       </View>
 
-      <TouchableOpacity style={styles.signOutButton} activeOpacity={0.7}>
+      <TouchableOpacity
+        style={styles.signOutButton}
+        activeOpacity={0.7}
+        onPress={handleSignOut}>
         <Text style={styles.signOutText}>Sign out</Text>
       </TouchableOpacity>
     </ScrollView>
@@ -155,5 +213,13 @@ const styles = StyleSheet.create({
     ...typography.body,
     color: colors.callRed,
     fontWeight: '600',
+  },
+  nameInput: {
+    ...typography.body,
+    color: colors.text,
+    textAlign: 'right',
+    flex: 1,
+    marginLeft: spacing.base,
+    padding: 0,
   },
 });

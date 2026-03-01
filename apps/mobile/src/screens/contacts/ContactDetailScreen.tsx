@@ -1,9 +1,11 @@
-import React, {useState} from 'react';
+import React from 'react';
 import {View, Text, TouchableOpacity, ScrollView, StyleSheet, Alert} from 'react-native';
 import Svg, {Path} from 'react-native-svg';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {Avatar} from '../../components/Avatar';
 import {CallButton} from '../../components/CallButton';
+import {useCallContext} from '../../stores/callStore';
+import {useContacts} from '../../stores/contactsStore';
 import {colors} from '../../theme/colors';
 import {typography} from '../../theme/typography';
 import {spacing} from '../../theme/spacing';
@@ -29,10 +31,14 @@ export function ContactDetailScreen({
 }: RootStackScreenProps<'ContactDetail'>) {
   const insets = useSafeAreaInsets();
   const {contactId, name} = route.params;
-  const [isFavorite, setIsFavorite] = useState(false);
+  const {startCall} = useCallContext();
+  const {contacts, removeContact, toggleFavorite} = useContacts();
+
+  const contact = contacts.find(c => c.contact_user_id === contactId);
+  const isFavorite = contact?.is_favorite ?? false;
 
   function handleCall() {
-    navigation.navigate('OutgoingCall', {contactId, contactName: name});
+    startCall(contactId, name);
   }
 
   function handleRemove() {
@@ -44,8 +50,8 @@ export function ContactDetailScreen({
         {
           text: 'Remove',
           style: 'destructive',
-          onPress: () => {
-            // TODO: wire up contact service
+          onPress: async () => {
+            await removeContact(contactId);
             navigation.goBack();
           },
         },
@@ -63,14 +69,13 @@ export function ContactDetailScreen({
       <View style={styles.profile}>
         <Avatar name={name} size={88} />
         <Text style={styles.name}>{name}</Text>
-        <Text style={styles.username}>@{name.toLowerCase().replace(/\s/g, '')}</Text>
       </View>
 
       <View style={styles.actions}>
         <CallButton size={60} onPress={handleCall} />
         <TouchableOpacity
           style={styles.favoriteButton}
-          onPress={() => setIsFavorite(f => !f)}
+          onPress={() => toggleFavorite(contactId)}
           activeOpacity={0.7}>
           <StarIcon filled={isFavorite} />
           <Text style={styles.favoriteLabel}>
@@ -106,10 +111,6 @@ const styles = StyleSheet.create({
     ...typography.title2,
     color: colors.text,
     marginTop: spacing.md,
-  },
-  username: {
-    ...typography.body,
-    color: colors.textSecondary,
   },
   actions: {
     flexDirection: 'row',

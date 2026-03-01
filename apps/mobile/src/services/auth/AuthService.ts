@@ -1,30 +1,5 @@
-/*
-  Supabase schema:
-
-  users
-    id          uuid  primary key  (matches auth.users.id)
-    display_name  text  not null
-    avatar_url    text
-    created_at    timestamptz  default now()
-    updated_at    timestamptz  default now()
-
-  contacts
-    user_id         uuid  references users(id)
-    contact_user_id uuid  references users(id)
-    is_favorite     boolean  default false
-    added_at        timestamptz  default now()
-    primary key (user_id, contact_user_id)
-
-  push_tokens
-    user_id     uuid  references users(id)
-    token       text  not null
-    platform    text  not null  -- 'ios' | 'android'
-    voip_token  text
-    updated_at  timestamptz  default now()
-*/
-
-import {supabase, type SupabaseSession} from '../supabase/client';
-import {SessionManager} from './SessionManager';
+import {supabase} from '../supabase/client';
+import type {Session} from '@supabase/supabase-js';
 
 export type AuthUser = {
   id: string;
@@ -33,7 +8,7 @@ export type AuthUser = {
 
 export type AuthState = {
   user: AuthUser | null;
-  session: SupabaseSession | null;
+  session: Session | null;
 };
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -70,20 +45,24 @@ export const AuthService = {
     const {data, error} = await supabase.auth.signUp({
       email: cleanEmail,
       password,
+      options: {
+        data: {display_name: name},
+      },
     });
 
     if (error) throw new Error(error.message);
     if (!data.user) throw new Error('Sign up failed');
 
-    // Create user profile row
+    // Update the user profile row created by the DB trigger
+    // The trigger creates a row with email prefix as display_name,
+    // so we update it with the user's chosen name
     const {error: profileError} = await supabase
       .from('users')
-      .insert({id: data.user.id, display_name: name});
+      .update({display_name: name})
+      .eq('id', data.user.id);
 
-    if (profileError) throw new Error(profileError.message);
-
-    if (data.session) {
-      await SessionManager.persistSession(data.session);
+    if (profileError) {
+      console.warn('Failed to update display name:', profileError.message);
     }
 
     return {
@@ -104,8 +83,6 @@ export const AuthService = {
     if (error) throw new Error(error.message);
     if (!data.session) throw new Error('Sign in failed');
 
-    await SessionManager.persistSession(data.session);
-
     return {
       user: {id: data.session.user.id, email: cleanEmail},
       session: data.session,
@@ -113,8 +90,8 @@ export const AuthService = {
   },
 
   async signOut(): Promise<void> {
-    await supabase.auth.signOut();
-    await SessionManager.clearSession();
+    const {error} = await supabase.auth.signOut();
+    if (error) throw new Error(error.message);
   },
 
   async resetPassword(email: string): Promise<void> {
@@ -128,38 +105,21 @@ export const AuthService = {
     const userId = data.session?.user.id;
     if (!userId) throw new Error('Not authenticated');
 
-    // Remove user data in order: push_tokens, contacts, users profile
-    await supabase.from('push_tokens').delete().eq('user_id', userId);
-    await supabase
-      .from('contacts')
-      .delete()
-      .or(`user_id.eq.${userId},contact_user_id.eq.${userId}`);
-    await supabase.from('users').delete().eq('id', userId);
+    // Remove user data — cascade will handle contacts and push_tokens
+    const {error} = await supabase.from('users').delete().eq('id', userId);
+    if (error) throw new Error(error.message);
 
-    // Delete auth account — requires service-role key on server in production
-    await supabase.auth.admin.deleteUser(userId);
-    await SessionManager.clearSession();
+    await supabase.auth.signOut();
   },
 
-  async getSession(): Promise<SupabaseSession | null> {
+  async getSession(): Promise<Session | null> {
     const {data, error} = await supabase.auth.getSession();
     if (error) throw new Error(error.message);
     return data.session;
   },
 
-  async refreshToken(): Promise<SupabaseSession | null> {
-    const {data, error} = await supabase.auth.refreshSession();
-    if (error) throw new Error(error.message);
-
-    if (data.session) {
-      await SessionManager.persistSession(data.session);
-    }
-
-    return data.session;
-  },
-
   onAuthStateChange(
-    callback: (event: string, session: SupabaseSession | null) => void,
+    callback: (event: string, session: Session | null) => void,
   ): {unsubscribe: () => void} {
     const {data} = supabase.auth.onAuthStateChange(callback);
     return data.subscription;

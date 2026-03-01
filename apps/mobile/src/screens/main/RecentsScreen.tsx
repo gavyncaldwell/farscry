@@ -4,33 +4,13 @@ import Svg, {Path} from 'react-native-svg';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {Avatar} from '../../components/Avatar';
 import {EmptyState} from '../../components/EmptyState';
+import {useRecents, type CallRecord} from '../../stores/callHistoryStore';
 import {colors} from '../../theme/colors';
 import {typography} from '../../theme/typography';
 import {spacing} from '../../theme/spacing';
 import type {MainTabScreenProps} from '../../navigation/types';
 
 type CallDirection = 'outgoing' | 'incoming' | 'missed';
-
-type RecentCall = {
-  id: string;
-  contactName: string;
-  contactId: string;
-  direction: CallDirection;
-  duration: number; // seconds
-  timestamp: Date;
-};
-
-const now = new Date();
-const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-const yesterday = new Date(today.getTime() - 86400000);
-
-const MOCK_RECENTS: RecentCall[] = [
-  {id: '1', contactName: 'Alice Chen', contactId: '1', direction: 'outgoing', duration: 342, timestamp: new Date(today.getTime() + 3600000 * 14)},
-  {id: '2', contactName: 'Marcus Wright', contactId: '7', direction: 'missed', duration: 0, timestamp: new Date(today.getTime() + 3600000 * 11)},
-  {id: '3', contactName: 'Priya Sharma', contactId: '8', direction: 'incoming', duration: 1205, timestamp: new Date(yesterday.getTime() + 3600000 * 20)},
-  {id: '4', contactName: 'James Ko', contactId: '6', direction: 'outgoing', duration: 67, timestamp: new Date(yesterday.getTime() + 3600000 * 15)},
-  {id: '5', contactName: 'Alice Chen', contactId: '1', direction: 'incoming', duration: 890, timestamp: new Date(yesterday.getTime() + 3600000 * 10)},
-];
 
 function formatDuration(seconds: number): string {
   if (seconds === 0) {
@@ -41,12 +21,16 @@ function formatDuration(seconds: number): string {
   return m > 0 ? `${m}m ${s}s` : `${s}s`;
 }
 
-function formatTime(date: Date): string {
-  return date.toLocaleTimeString([], {hour: 'numeric', minute: '2-digit'});
+function formatTime(isoString: string): string {
+  return new Date(isoString).toLocaleTimeString([], {hour: 'numeric', minute: '2-digit'});
 }
 
-function getDateLabel(date: Date): string {
+function getDateLabel(isoString: string): string {
+  const date = new Date(isoString);
   const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const yesterday = new Date(today.getTime() - 86400000);
   if (d.getTime() === today.getTime()) {
     return 'Today';
   }
@@ -98,15 +82,20 @@ function ClockIcon() {
   );
 }
 
+function getDirection(record: CallRecord): CallDirection {
+  if (record.status === 'missed') return 'missed';
+  return record.direction;
+}
+
 type Section = {
   title: string;
-  data: RecentCall[];
+  data: CallRecord[];
 };
 
-function groupByDay(calls: RecentCall[]): Section[] {
-  const map = new Map<string, RecentCall[]>();
+function groupByDay(calls: CallRecord[]): Section[] {
+  const map = new Map<string, CallRecord[]>();
   for (const call of calls) {
-    const label = getDateLabel(call.timestamp);
+    const label = getDateLabel(call.startedAt);
     const group = map.get(label) ?? [];
     group.push(call);
     map.set(label, group);
@@ -116,9 +105,10 @@ function groupByDay(calls: RecentCall[]): Section[] {
 
 export function RecentsScreen({navigation}: MainTabScreenProps<'Recents'>) {
   const insets = useSafeAreaInsets();
-  const sections = useMemo(() => groupByDay(MOCK_RECENTS), []);
+  const {recents, loading} = useRecents();
+  const sections = useMemo(() => groupByDay(recents), [recents]);
 
-  if (MOCK_RECENTS.length === 0) {
+  if (!loading && recents.length === 0) {
     return (
       <EmptyState
         icon={<ClockIcon />}
@@ -140,36 +130,39 @@ export function RecentsScreen({navigation}: MainTabScreenProps<'Recents'>) {
             <Text style={styles.sectionTitle}>{section.title}</Text>
           </View>
         )}
-        renderItem={({item}) => (
-          <TouchableOpacity
-            style={styles.row}
-            onPress={() =>
-              navigation.navigate('ContactDetail', {
-                contactId: item.contactId,
-                name: item.contactName,
-              })
-            }
-            activeOpacity={0.7}>
-            <Avatar name={item.contactName} size={40} />
-            <View style={styles.info}>
-              <Text
-                style={[
-                  styles.name,
-                  item.direction === 'missed' && styles.missedName,
-                ]}
-                numberOfLines={1}>
-                {item.contactName}
-              </Text>
-              <View style={styles.meta}>
-                <DirectionIcon direction={item.direction} />
-                <Text style={styles.detail}>
-                  {formatDuration(item.duration)}
+        renderItem={({item}) => {
+          const direction = getDirection(item);
+          return (
+            <TouchableOpacity
+              style={styles.row}
+              onPress={() =>
+                navigation.navigate('ContactDetail', {
+                  contactId: item.contactId,
+                  name: item.contactName,
+                })
+              }
+              activeOpacity={0.7}>
+              <Avatar name={item.contactName} size={40} />
+              <View style={styles.info}>
+                <Text
+                  style={[
+                    styles.name,
+                    direction === 'missed' && styles.missedName,
+                  ]}
+                  numberOfLines={1}>
+                  {item.contactName}
                 </Text>
+                <View style={styles.meta}>
+                  <DirectionIcon direction={direction} />
+                  <Text style={styles.detail}>
+                    {formatDuration(item.duration)}
+                  </Text>
+                </View>
               </View>
-            </View>
-            <Text style={styles.time}>{formatTime(item.timestamp)}</Text>
-          </TouchableOpacity>
-        )}
+              <Text style={styles.time}>{formatTime(item.startedAt)}</Text>
+            </TouchableOpacity>
+          );
+        }}
       />
     </View>
   );

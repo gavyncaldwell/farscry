@@ -1,32 +1,16 @@
-import React, {useMemo, useState} from 'react';
+import React, {useEffect, useMemo, useState} from 'react';
 import {View, Text, SectionList, TouchableOpacity, StyleSheet} from 'react-native';
 import Svg, {Path} from 'react-native-svg';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {ContactRow} from '../../components/ContactRow';
 import {SearchBar} from '../../components/SearchBar';
 import {EmptyState} from '../../components/EmptyState';
+import {useContacts} from '../../stores/contactsStore';
+import type {Contact} from '../../services/user/ContactsService';
 import {colors} from '../../theme/colors';
 import {typography} from '../../theme/typography';
 import {spacing} from '../../theme/spacing';
 import type {MainTabScreenProps} from '../../navigation/types';
-
-type Contact = {
-  id: string;
-  name: string;
-  username: string;
-  online: boolean;
-};
-
-const MOCK_CONTACTS: Contact[] = [
-  {id: '1', name: 'Alice Chen', username: 'alice', online: true},
-  {id: '2', name: 'Ben Torres', username: 'bentorres', online: false},
-  {id: '3', name: 'Clara Reyes', username: 'clarareyes', online: true},
-  {id: '4', name: 'David Kim', username: 'dkim', online: false},
-  {id: '5', name: 'Emma Wilson', username: 'emmaw', online: false},
-  {id: '6', name: 'James Ko', username: 'jamesko', online: false},
-  {id: '7', name: 'Marcus Wright', username: 'marcusw', online: true},
-  {id: '8', name: 'Priya Sharma', username: 'priya', online: true},
-];
 
 function PlusIcon() {
   return (
@@ -61,10 +45,11 @@ type Section = {
   data: Contact[];
 };
 
-function buildSections(contacts: Contact[]): Section[] {
+function buildSections(items: Contact[]): Section[] {
   const map = new Map<string, Contact[]>();
-  for (const c of contacts) {
-    const letter = c.name.charAt(0).toUpperCase();
+  for (const c of items) {
+    const name = c.profile?.display_name ?? '?';
+    const letter = name.charAt(0).toUpperCase();
     const group = map.get(letter) ?? [];
     group.push(c);
     map.set(letter, group);
@@ -77,16 +62,18 @@ function buildSections(contacts: Contact[]): Section[] {
 export function ContactsScreen({navigation}: MainTabScreenProps<'Contacts'>) {
   const insets = useSafeAreaInsets();
   const [search, setSearch] = useState('');
+  const {contacts, fetchContacts} = useContacts();
+
+  useEffect(() => { fetchContacts(); }, [fetchContacts]);
 
   const filtered = useMemo(() => {
-    if (!search.trim()) {
-      return MOCK_CONTACTS;
-    }
+    if (!search.trim()) return contacts;
     const q = search.toLowerCase();
-    return MOCK_CONTACTS.filter(
-      c => c.name.toLowerCase().includes(q) || c.username.toLowerCase().includes(q),
-    );
-  }, [search]);
+    return contacts.filter(c => {
+      const name = c.profile?.display_name ?? '';
+      return name.toLowerCase().includes(q);
+    });
+  }, [search, contacts]);
 
   const sections = useMemo(() => buildSections(filtered), [filtered]);
 
@@ -117,7 +104,7 @@ export function ContactsScreen({navigation}: MainTabScreenProps<'Contacts'>) {
       ) : (
         <SectionList
           sections={sections}
-          keyExtractor={item => item.id}
+          keyExtractor={item => item.contact_user_id}
           contentContainerStyle={{paddingBottom: insets.bottom + spacing.base}}
           stickySectionHeadersEnabled
           renderSectionHeader={({section}) => (
@@ -127,19 +114,17 @@ export function ContactsScreen({navigation}: MainTabScreenProps<'Contacts'>) {
           )}
           renderItem={({item}) => (
             <ContactRow
-              name={item.name}
-              username={item.username}
-              online={item.online}
+              name={item.profile?.display_name ?? '?'}
               onPress={() =>
                 navigation.navigate('ContactDetail', {
-                  contactId: item.id,
-                  name: item.name,
+                  contactId: item.contact_user_id,
+                  name: item.profile?.display_name ?? '?',
                 })
               }
               onCall={() =>
                 navigation.navigate('OutgoingCall', {
-                  contactId: item.id,
-                  contactName: item.name,
+                  contactId: item.contact_user_id,
+                  contactName: item.profile?.display_name ?? '?',
                 })
               }
             />

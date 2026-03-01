@@ -7,8 +7,10 @@ import {
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
+  ActivityIndicator,
 } from 'react-native';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
+import {useAuth} from '../../stores/authStore';
 import {colors} from '../../theme/colors';
 import {typography} from '../../theme/typography';
 import {spacing} from '../../theme/spacing';
@@ -18,9 +20,10 @@ export function LoginScreen({navigation}: AuthScreenProps<'Login'>) {
   const insets = useSafeAreaInsets();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const {signIn, loading, error, clearError} = useAuth();
 
-  function handleLogin() {
-    // TODO: wire up auth service
+  async function handleLogin() {
+    await signIn(email, password);
   }
 
   return (
@@ -55,19 +58,27 @@ export function LoginScreen({navigation}: AuthScreenProps<'Login'>) {
             textContentType="password"
           />
 
+          {error && (
+            <Text style={styles.errorText}>{error}</Text>
+          )}
+
           <TouchableOpacity
-            style={[styles.button, (!email || !password) && styles.buttonDisabled]}
+            style={[styles.button, (!email || !password || loading) && styles.buttonDisabled]}
             onPress={handleLogin}
             activeOpacity={0.8}
-            disabled={!email || !password}>
-            <Text style={styles.buttonText}>Sign in</Text>
+            disabled={!email || !password || loading}>
+            {loading ? (
+              <ActivityIndicator color={colors.white} />
+            ) : (
+              <Text style={styles.buttonText}>Sign in</Text>
+            )}
           </TouchableOpacity>
         </View>
       </View>
 
       <TouchableOpacity
         style={styles.signupLink}
-        onPress={() => navigation.navigate('Signup')}
+        onPress={() => { clearError(); navigation.navigate('Signup'); }}
         activeOpacity={0.7}>
         <Text style={styles.signupText}>
           Don't have an account?{' '}
@@ -127,6 +138,11 @@ const styles = StyleSheet.create({
   buttonText: {
     ...typography.headline,
     color: colors.white,
+  },
+  errorText: {
+    ...typography.footnote,
+    color: colors.callRed,
+    textAlign: 'center',
   },
   signupLink: {
     alignItems: 'center',

@@ -77,7 +77,7 @@ export class SignalingServer {
 
   private handleMessage(conn: ClientConnection, message: ClientMessage): void {
     if (message.type === 'register') {
-      this.handleRegister(conn, message);
+      void this.handleRegister(conn, message);
       return;
     }
 
@@ -113,8 +113,8 @@ export class SignalingServer {
     }
   }
 
-  private handleRegister(conn: ClientConnection, msg: RegisterMessage): void {
-    const authResult = validateToken(msg.token);
+  private async handleRegister(conn: ClientConnection, msg: RegisterMessage): Promise<void> {
+    const authResult = await validateToken(msg.token);
     if (!authResult.valid) {
       conn.sendError('auth_failed', authResult.error ?? 'Invalid token');
       conn.close(WS_CLOSE_AUTH_FAILED, 'auth failed');

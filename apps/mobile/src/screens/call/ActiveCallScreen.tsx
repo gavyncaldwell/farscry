@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {CallControls} from '../../components/CallControls';
+import {useCallContext} from '../../stores/callStore';
 import {colors} from '../../theme/colors';
 import {typography} from '../../theme/typography';
 import {spacing} from '../../theme/spacing';
@@ -24,6 +25,7 @@ export function ActiveCallScreen({
   route,
 }: RootStackScreenProps<'ActiveCall'>) {
   const insets = useSafeAreaInsets();
+  const {callManager, callState} = useCallContext();
   const {contactName} = route.params;
 
   const [muted, setMuted] = useState(false);
@@ -86,6 +88,13 @@ export function ActiveCallScreen({
     return () => clearInterval(interval);
   }, []);
 
+  useEffect(() => {
+    if (callState.phase === 'ended') {
+      const timer = setTimeout(() => navigation.goBack(), 500);
+      return () => clearTimeout(timer);
+    }
+  }, [callState.phase, navigation]);
+
   function showControls() {
     setControlsVisible(true);
     controlsOpacity.setValue(1);
@@ -107,8 +116,29 @@ export function ActiveCallScreen({
     }
   }
 
+  function handleToggleMute() {
+    const next = !muted;
+    if (callManager) {
+      callManager.mediaService.setMicEnabled(!next);
+    }
+    setMuted(next);
+  }
+
+  function handleToggleCamera() {
+    const next = !cameraOff;
+    if (callManager) {
+      callManager.mediaService.setCameraEnabled(!next);
+    }
+    setCameraOff(next);
+  }
+
+  function handleToggleSpeaker() {
+    setSpeakerOn(s => !s);
+    // Speaker routing is handled by react-native-incall-manager
+  }
+
   function handleHangup() {
-    navigation.goBack();
+    callManager?.hangup();
   }
 
   const minutes = Math.floor(elapsed / 60);
@@ -161,9 +191,9 @@ export function ActiveCallScreen({
                 muted={muted}
                 cameraOff={cameraOff}
                 speakerOn={speakerOn}
-                onToggleMute={() => setMuted(m => !m)}
-                onToggleCamera={() => setCameraOff(c => !c)}
-                onToggleSpeaker={() => setSpeakerOn(s => !s)}
+                onToggleMute={handleToggleMute}
+                onToggleCamera={handleToggleCamera}
+                onToggleSpeaker={handleToggleSpeaker}
                 onHangup={handleHangup}
               />
             </View>

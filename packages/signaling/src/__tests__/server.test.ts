@@ -1,6 +1,25 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { createServer, type Server } from 'node:http';
 import { WebSocketServer, WebSocket } from 'ws';
+
+// Mock auth module so tests don't need a real JWT secret.
+// vi.mock is hoisted before imports by vitest, so the static import below
+// will receive the mocked version.
+vi.mock('../auth.js', () => ({
+  validateToken: vi.fn(async (token: string) => {
+    if (token === 'not-a-jwt') {
+      return { valid: false, error: 'invalid token' };
+    }
+    try {
+      const parts = token.split('.');
+      const payload = JSON.parse(Buffer.from(parts[1], 'base64url').toString());
+      return { valid: true, userId: payload.sub };
+    } catch {
+      return { valid: false, error: 'invalid token' };
+    }
+  }),
+}));
+
 import { SignalingServer } from '../server.js';
 
 function makeToken(sub: string, exp?: number): string {

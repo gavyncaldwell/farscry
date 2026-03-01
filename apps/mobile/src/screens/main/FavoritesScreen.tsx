@@ -1,26 +1,13 @@
-import React from 'react';
+import React, {useEffect} from 'react';
 import {View, FlatList, StyleSheet} from 'react-native';
 import Svg, {Path} from 'react-native-svg';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {ContactCard} from '../../components/ContactCard';
 import {EmptyState} from '../../components/EmptyState';
+import {useContacts} from '../../stores/contactsStore';
 import {colors} from '../../theme/colors';
 import {spacing} from '../../theme/spacing';
 import type {MainTabScreenProps} from '../../navigation/types';
-
-type FavoriteContact = {
-  id: string;
-  name: string;
-  online: boolean;
-};
-
-// placeholder data — will be replaced by real contacts
-const MOCK_FAVORITES: FavoriteContact[] = [
-  {id: '1', name: 'Alice Chen', online: true},
-  {id: '2', name: 'Marcus Wright', online: false},
-  {id: '3', name: 'Priya Sharma', online: true},
-  {id: '4', name: 'James Ko', online: false},
-];
 
 function StarIcon() {
   return (
@@ -38,15 +25,11 @@ function StarIcon() {
 
 export function FavoritesScreen({navigation}: MainTabScreenProps<'Favorites'>) {
   const insets = useSafeAreaInsets();
+  const {favorites, fetchContacts} = useContacts();
 
-  function handleCallContact(contact: FavoriteContact) {
-    navigation.navigate('OutgoingCall', {
-      contactId: contact.id,
-      contactName: contact.name,
-    });
-  }
+  useEffect(() => { fetchContacts(); }, [fetchContacts]);
 
-  if (MOCK_FAVORITES.length === 0) {
+  if (favorites.length === 0) {
     return (
       <EmptyState
         icon={<StarIcon />}
@@ -59,19 +42,23 @@ export function FavoritesScreen({navigation}: MainTabScreenProps<'Favorites'>) {
   return (
     <View style={styles.container}>
       <FlatList
-        data={MOCK_FAVORITES}
+        data={favorites}
         numColumns={2}
         contentContainerStyle={[
           styles.grid,
           {paddingBottom: insets.bottom + spacing.base},
         ]}
         columnWrapperStyle={styles.row}
-        keyExtractor={item => item.id}
+        keyExtractor={item => item.contact_user_id}
         renderItem={({item}) => (
           <ContactCard
-            name={item.name}
-            online={item.online}
-            onPress={() => handleCallContact(item)}
+            name={item.profile?.display_name ?? '?'}
+            onPress={() =>
+              navigation.navigate('OutgoingCall', {
+                contactId: item.contact_user_id,
+                contactName: item.profile?.display_name ?? '?',
+              })
+            }
           />
         )}
       />

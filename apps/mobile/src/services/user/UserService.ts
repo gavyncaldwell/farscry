@@ -16,14 +16,13 @@ export type ProfileUpdate = {
 export const UserService = {
   async getProfile(userId: string): Promise<UserProfile> {
     const {data, error} = await supabase
-      .from<UserProfile>('users')
+      .from('users')
       .select('*')
       .eq('id', userId)
       .single();
 
     if (error) throw new Error(error.message);
-    if (!data) throw new Error('User not found');
-    return data;
+    return data as UserProfile;
   },
 
   async updateProfile(updates: ProfileUpdate): Promise<UserProfile> {
@@ -38,14 +37,14 @@ export const UserService = {
     }
 
     const {data, error} = await supabase
-      .from<UserProfile>('users')
+      .from('users')
       .update({...updates, updated_at: new Date().toISOString()})
       .eq('id', userId)
+      .select()
       .single();
 
     if (error) throw new Error(error.message);
-    if (!data) throw new Error('Profile update failed');
-    return data;
+    return data as UserProfile;
   },
 
   async searchUsers(query: string): Promise<UserProfile[]> {
@@ -53,23 +52,23 @@ export const UserService = {
     if (!trimmed) return [];
 
     const {data, error} = await supabase
-      .from<UserProfile>('users')
+      .from('users')
       .select('*')
       .ilike('display_name', `%${trimmed}%`)
       .limit(20);
 
     if (error) throw new Error(error.message);
-    return data ?? [];
+    return (data ?? []) as UserProfile[];
   },
 
   async getUserById(id: string): Promise<UserProfile | null> {
     const {data, error} = await supabase
-      .from<UserProfile>('users')
+      .from('users')
       .select('*')
       .eq('id', id)
       .maybeSingle();
 
     if (error) throw new Error(error.message);
-    return data;
+    return data as UserProfile | null;
   },
 };

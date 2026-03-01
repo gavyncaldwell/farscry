@@ -19,8 +19,8 @@ jobs:
 
       - run: npm ci
 
-      - name: Typecheck shared package
-        run: npm run typecheck --workspace=@farscry/shared
+      - name: Build shared package
+        run: npm run build --workspace=@farscry/shared
 
       - name: Typecheck signaling server
         run: npm run typecheck --workspace=@farscry/signaling
@@ -41,6 +41,9 @@ jobs:
 
       - run: npm ci
 
+      - name: Build shared package
+        run: npm run build --workspace=@farscry/shared
+
       - name: Run server tests
         run: npm run test --workspace=@farscry/signaling
 
@@ -59,7 +62,7 @@ jobs:
 
       - uses: ruby/setup-ruby@v1
         with:
-          ruby-version: 3.2
+          ruby-version: '3.1'
           bundler-cache: true
           working-directory: apps/mobile
 

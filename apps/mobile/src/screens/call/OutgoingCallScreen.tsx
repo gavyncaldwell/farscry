@@ -2,6 +2,7 @@ import React, {useEffect, useRef} from 'react';
 import {View, Text, TouchableOpacity, Animated, StyleSheet} from 'react-native';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {Avatar} from '../../components/Avatar';
+import {useCallContext} from '../../stores/callStore';
 import {colors} from '../../theme/colors';
 import {typography} from '../../theme/typography';
 import {spacing} from '../../theme/spacing';
@@ -12,7 +13,8 @@ export function OutgoingCallScreen({
   route,
 }: RootStackScreenProps<'OutgoingCall'>) {
   const insets = useSafeAreaInsets();
-  const {contactName} = route.params;
+  const {callManager, callState} = useCallContext();
+  const {contactId, contactName} = route.params;
 
   const dot1 = useRef(new Animated.Value(0.3)).current;
   const dot2 = useRef(new Animated.Value(0.3)).current;
@@ -43,7 +45,16 @@ export function OutgoingCallScreen({
     };
   }, [dot1, dot2, dot3]);
 
+  useEffect(() => {
+    if (callState.phase === 'connecting' || callState.phase === 'active') {
+      navigation.replace('ActiveCall', {contactId, contactName});
+    } else if (callState.phase === 'ended') {
+      navigation.goBack();
+    }
+  }, [callState.phase, navigation, contactId, contactName]);
+
   function handleCancel() {
+    callManager?.cancelCall();
     navigation.goBack();
   }
 
