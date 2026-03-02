@@ -1,11 +1,12 @@
 import React, {useEffect, useMemo, useState} from 'react';
-import {View, Text, SectionList, TouchableOpacity, StyleSheet} from 'react-native';
+import {View, Text, SectionList, TouchableOpacity, StyleSheet, Alert} from 'react-native';
 import Svg, {Path} from 'react-native-svg';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {ContactRow} from '../../components/ContactRow';
 import {SearchBar} from '../../components/SearchBar';
 import {EmptyState} from '../../components/EmptyState';
 import {useContacts} from '../../stores/contactsStore';
+import {useCallContext} from '../../stores/callStore';
 import type {Contact} from '../../services/user/ContactsService';
 import {colors} from '../../theme/colors';
 import {typography} from '../../theme/typography';
@@ -63,6 +64,7 @@ export function ContactsScreen({navigation}: MainTabScreenProps<'Contacts'>) {
   const insets = useSafeAreaInsets();
   const [search, setSearch] = useState('');
   const {contacts, fetchContacts} = useContacts();
+  const {startCall} = useCallContext();
 
   useEffect(() => { fetchContacts(); }, [fetchContacts]);
 
@@ -122,10 +124,8 @@ export function ContactsScreen({navigation}: MainTabScreenProps<'Contacts'>) {
                 })
               }
               onCall={() =>
-                navigation.navigate('OutgoingCall', {
-                  contactId: item.contact_user_id,
-                  contactName: item.profile?.display_name ?? '?',
-                })
+                startCall(item.contact_user_id, item.profile?.display_name ?? '?')
+                  .catch((err: Error) => Alert.alert('Call failed', err.message))
               }
             />
           )}

@@ -57,6 +57,7 @@ export class SignalingServer {
     ws.on('message', (data) => {
       try {
         const message = JSON.parse(data.toString()) as ClientMessage;
+        logger.debug('Received message', { userId: conn.userId, type: message.type });
         this.handleMessage(conn, message);
       } catch {
         conn.sendError('parse_error', 'Invalid message format');

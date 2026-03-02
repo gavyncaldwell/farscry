@@ -8,6 +8,7 @@ import {
   Dimensions,
   PanResponder,
 } from 'react-native';
+import {RTCView} from 'react-native-webrtc';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {CallControls} from '../../components/CallControls';
 import {useCallContext} from '../../stores/callStore';
@@ -33,6 +34,25 @@ export function ActiveCallScreen({
   const [speakerOn, setSpeakerOn] = useState(false);
   const [controlsVisible, setControlsVisible] = useState(true);
   const [elapsed, setElapsed] = useState(0);
+  const [localStreamUrl, setLocalStreamUrl] = useState<string | null>(null);
+  const [remoteStreamUrl, setRemoteStreamUrl] = useState<string | null>(null);
+
+  // Poll for streams becoming available
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const local = callManager?.mediaService.getStream();
+      const remote = callManager?.webrtcService.getRemoteStream();
+      if (local) {
+        const url = local.toURL();
+        setLocalStreamUrl(prev => prev !== url ? url : prev);
+      }
+      if (remote) {
+        const url = remote.toURL();
+        setRemoteStreamUrl(prev => prev !== url ? url : prev);
+      }
+    }, 500);
+    return () => clearInterval(interval);
+  }, [callManager]);
 
   const controlsOpacity = useRef(new Animated.Value(1)).current;
   const hideTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -148,9 +168,18 @@ export function ActiveCallScreen({
   return (
     <TouchableWithoutFeedback onPress={handleTap}>
       <View style={styles.container}>
-        {/* Remote video placeholder */}
+        {/* Remote video */}
         <View style={styles.remoteVideo}>
-          <Text style={styles.placeholderText}>{contactName}</Text>
+          {remoteStreamUrl ? (
+            <RTCView
+              streamURL={remoteStreamUrl}
+              style={StyleSheet.absoluteFill}
+              objectFit="cover"
+              zOrder={0}
+            />
+          ) : (
+            <Text style={styles.placeholderText}>{contactName}</Text>
+          )}
         </View>
 
         {/* Local video PiP */}
@@ -165,6 +194,14 @@ export function ActiveCallScreen({
           <View style={styles.localVideoInner}>
             {cameraOff ? (
               <Text style={styles.cameraOffText}>Camera off</Text>
+            ) : localStreamUrl ? (
+              <RTCView
+                streamURL={localStreamUrl}
+                style={StyleSheet.absoluteFill}
+                objectFit="cover"
+                zOrder={1}
+                mirror
+              />
             ) : (
               <Text style={styles.pipLabel}>You</Text>
             )}

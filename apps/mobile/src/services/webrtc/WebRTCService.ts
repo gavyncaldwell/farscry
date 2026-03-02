@@ -59,7 +59,9 @@ export class WebRTCService {
 
   attachLocalStream(stream: MediaStream) {
     if (!this.pc) throw new Error('No peer connection');
-    this.pc.addStream(stream);
+    stream.getTracks().forEach(track => {
+      this.pc!.addTrack(track, stream);
+    });
   }
 
   async createOffer(): Promise<string> {

@@ -28,6 +28,7 @@ export class CallManager {
   constructor(signaling: SignalingClient, turnCredentials?: { username: string; credential: string }) {
     this.signaling = signaling;
     this.iceConfig = configureIce(turnCredentials);
+    this.listenToSignaling();
   }
 
   get state(): CallStateValue {
@@ -226,10 +227,8 @@ export class CallManager {
   private teardown() {
     this.webrtc.cleanup();
     this.media.release();
-    if (this.unsubSignaling) {
-      this.unsubSignaling();
-      this.unsubSignaling = null;
-    }
+    // Don't unsubscribe from signaling here — the listener persists
+    // for the lifetime of the CallManager to handle subsequent calls.
   }
 
   destroy() {
